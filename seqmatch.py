@@ -10,13 +10,29 @@ from datetime import datetime
 from subprocess import Popen
 from subprocess import PIPE
 
+size_min_num = 17
+
+if size_min_num >= 32:
+	print 'Minimers must be less than or equal to 32\n'
+	exit()
+print 'Minimizer is less than or equal to 32\n'
+
+#	targetDB = '/share/biocore/internal_projects/seqmatch/genomes/59814.6/59814.6.fna'
+queryDB = '/share/biocore/internal_projects/seqmatch/03-SpadesAssemblies/26-3_S36/26-3_S36.Scaffolds.fna'
+if not os.path.isfile(queryDB):
+	print 'Query file does not exist\n'
+	exit()
+print 'Query file exists\n'
+
+#create list of fna files
 fnas = []
 for root, dirs, files in os.walk('/share/biocore/internal_projects/seqmatch/genomes'):
 	fnas += glob.glob(os.path.join(root, '*.fna'))
 
 bevelPath = "/share/biocore/internal_projects/seqmatch/bevel/bin/bevel"
 
-def wrapBev(bevelPath, targetDB, queryDB, writeDB = False, nMinimizer = 100, sizeMinimizer = 17):
+def wrapBev(bevelPath, targetDB, queryDB, writeDB = False, nMinimizer = 100, sizeMinimizer = size_min_num):
+	
 	call = bevelPath
 
 	if writeDB:
@@ -55,13 +71,11 @@ def analyzeTarget(targetDB, queryDB, outputFile):
 		sys.stderr.write('There is a problem!\n')
 	
 def main():
-#	targetDB = '/share/biocore/internal_projects/seqmatch/genomes/59814.6/59814.6.fna'
-	queryDB = '/share/biocore/internal_projects/seqmatch/03-SpadesAssemblies/26-3_S36/26-3_S36.Scaffolds.fna'
+
 	for targetDB in fnas[:10]:
 		print(os.path.splitext(os.path.basename(targetDB))[0])
 		outputFile = 'output_' + os.path.splitext(os.path.basename(targetDB))[0] + "_" + datetime.now().strftime("%Y%m%d-%H%M%S") + '.txt'
 		analyzeTarget(targetDB, queryDB, outputFile)
-
 
 
 if __name__ == '__main__':
