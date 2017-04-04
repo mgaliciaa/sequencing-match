@@ -17,7 +17,7 @@ if size_min_num >= 32:
 	exit()
 print 'Minimizer is less than or equal to 32\n'
 
-#	targetDB = '/share/biocore/internal_projects/seqmatch/genomes/59814.6/59814.6.fna'
+#targetDB = '/share/biocore/internal_projects/seqmatch/genomes/59814.6/59814.6.fna'
 queryDB = '/share/biocore/internal_projects/seqmatch/03-SpadesAssemblies/26-3_S36/26-3_S36.Scaffolds.fna'
 if not os.path.isfile(queryDB):
 	print 'Query file does not exist\n'
@@ -64,7 +64,7 @@ def analyzeTarget(targetDB, queryDB, outputFile):
 			oFile.write(line)
 			line2 = line.strip().split()
 	
-#		print ("Finished processing file, read ", i ,  " lines\n")
+		#print ("Finished processing file, read ", i ,  " lines\n")
 		oFile.close()
 
 	except:
