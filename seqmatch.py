@@ -39,7 +39,7 @@ def createDBList (rd): #create list of db files
 def wrapBev(bevelPath, targetDB, queryDB, writeDB = False, nMinimizer = 100, sizeMinimizer = size_min_num):
 	
 	if size_min_num >= 32:
-        	print 'Minimers must be less than or equal to 32\n'
+        	print 'Minimizers must be less than or equal to 32\n'
         	exit()
 
 	call = bevelPath
