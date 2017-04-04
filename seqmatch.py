@@ -4,7 +4,7 @@ import os
 import sys
 import string
 import signal
-import glob
+import fnmatch 
 
 from datetime import datetime
 from subprocess import Popen
@@ -12,27 +12,36 @@ from subprocess import PIPE
 
 size_min_num = 17
 
-if size_min_num >= 32:
-	print 'Minimers must be less than or equal to 32\n'
-	exit()
-print 'Minimizer is less than or equal to 32\n'
-
 #targetDB = '/share/biocore/internal_projects/seqmatch/genomes/59814.6/59814.6.fna'
-queryDB = '/share/biocore/internal_projects/seqmatch/03-SpadesAssemblies/26-3_S36/26-3_S36.Scaffolds.fna'
-if not os.path.isfile(queryDB):
-	print 'Query file does not exist\n'
-	exit()
-print 'Query file exists\n'
+#queryDB = '/share/biocore/internal_projects/seqmatch/03-SpadesAssemblies/26-3_S36/26-3_S36.Scaffolds.fna'
+#if not os.path.isfile(queryDB):
+#	print 'Query file does not exist\n'
+#	exit()
+#print 'Query file exists\n'
 
 #create list of fna files
-fnas = []
-for root, dirs, files in os.walk('/share/biocore/internal_projects/seqmatch/genomes'):
-	fnas += glob.glob(os.path.join(root, '*.fna'))
+#rootdir ='/share/biocore/internal_projects/seqmatch/genomes'
+#fnas = []
 
 bevelPath = "/share/biocore/internal_projects/seqmatch/bevel/bin/bevel"
 
+
+def createDBList (rd): #create list of db files
+	dblist = []
+	for root, dirnames, filenames in os.walk(rd):
+    		for filename in fnmatch.filter(filenames, '*.fna'):
+        		dblist.append(os.path.join(root, filename))
+
+	if not dblist:
+		raise
+	return dblist
+
 def wrapBev(bevelPath, targetDB, queryDB, writeDB = False, nMinimizer = 100, sizeMinimizer = size_min_num):
 	
+	if size_min_num >= 32:
+        	print 'Minimers must be less than or equal to 32\n'
+        	exit()
+
 	call = bevelPath
 
 	if writeDB:
@@ -53,30 +62,49 @@ def wrapBev(bevelPath, targetDB, queryDB, writeDB = False, nMinimizer = 100, siz
 		raise
 	return p.stdout 
 
-def analyzeTarget(targetDB, queryDB, outputFile):
-#do stuff
+def analyzeTarget(targetDB, queryDB, oOutput):
 	try:
-		oFile = open(outputFile, "w")
+
 		i = 0
 		
+
+		# get target DB name
+		targetDBName = os.path.splitext(os.path.basename(targetDB))[0]
+
+		# get query DB name
+		queryDBName = os.path.splitext(os.path.basename(queryDB))[0]
+
+		oOutput.write('\ntarget: ' + targetDBName + ' ==> ' + 'query: ' + queryDBName + '\n')
+	
 		for line in wrapBev(bevelPath, targetDB, queryDB):
 			i += 1
-			oFile.write(line)
-			line2 = line.strip().split()
+			oOutput.write(line)
 	
-		#print ("Finished processing file, read ", i ,  " lines\n")
-		oFile.close()
+		print ("Finished processing file, read ", i ,  " lines\n")
 
 	except:
 		sys.stderr.write('There is a problem!\n')
 	
 def main():
 
-	for targetDB in fnas[:10]:
-		print(os.path.splitext(os.path.basename(targetDB))[0])
-		outputFile = 'output_' + os.path.splitext(os.path.basename(targetDB))[0] + "_" + datetime.now().strftime("%Y%m%d-%H%M%S") + '.txt'
-		analyzeTarget(targetDB, queryDB, outputFile)
+	# Create list of target DBs
+	targetDBs = createDBList('/share/biocore/internal_projects/seqmatch/genomes')
 
+	# Create list of query DBs
+	queryDBs = createDBList('/share/biocore/internal_projects/seqmatch/03-SpadesAssemblies/')
+
+	# Create output filename which includes time stamp
+	outputFile = 'output_' + datetime.now().strftime("%Y%m%d-%H%M%S") + '.txt'
+
+	# Create/open output file object
+	oFile = open(outputFile, "w")
+
+	for queryDB in queryDBs[:5]:
+		for targetDB in targetDBs[:10]:
+			analyzeTarget(targetDB, queryDB, oFile)
+
+	# Done writing to output file so close it
+	oFile.close()
 
 if __name__ == '__main__':
 	main()
