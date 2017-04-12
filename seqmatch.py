@@ -69,12 +69,12 @@ def analyzeTarget(targetDB, queryDB, oOutput):
 		
 
 		# get target DB name
-		targetDBName = os.path.splitext(os.path.basename(targetDB))[0]
-
-		# get query DB name
 		queryDBName = os.path.splitext(os.path.basename(queryDB))[0]
 
-		oOutput.write('\ntarget: ' + targetDBName + ' ==> ' + 'query: ' + queryDBName + '\n')
+		# get query DB name
+		targetDBName = os.path.splitext(os.path.basename(targetDB))[0]
+
+		oOutput.write('\nquery: ' + queryDBName + ' ==> ' + 'target: ' + targetDBName + '\n')
 	
 		for line in wrapBev(bevelPath, targetDB, queryDB):
 			i += 1
@@ -99,8 +99,8 @@ def main():
 	# Create/open output file object
 	oFile = open(outputFile, "w")
 
-	for queryDB in queryDBs[:5]:
-		for targetDB in targetDBs[:10]:
+	for queryDB in queryDBs[:]:
+		for targetDB in targetDBs[:]:
 			analyzeTarget(targetDB, queryDB, oFile)
 
 	# Done writing to output file so close it
