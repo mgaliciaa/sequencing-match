@@ -66,17 +66,20 @@ def wrapBev(bevelPath, targetDB, queryDB, writeDB = False, nMinimizer = 100, siz
 def analyzeTarget(targetDBs, queryDBs, oOutput):
 	# try:
 
-		total=len(targetDBs)*len(queryDBs) #how many targets processed
+		total=len(targetDBs)*len(queryDBs)
 		# target: 149385.12 ==> query: 41-3_S39.
 		#targetDB = '/share/biocore/internal_projects/seqmatch/genomes/149385.12/149385.12.fna'
 		#queryDB = '/share/biocore/internal_projects/seqmatch/03-SpadesAssemblies/41-3_S39/41-3_S39.AllContigs.fna'
 
+		columns=['qDB','qseqID','tDB','tseqID','qminz']
+		dfall = pd.DataFrame(columns=columns)
+		# dfall.loc[len(dfall)]=
 		count = 0
 		for queryDB in queryDBs:
 			for targetDB in targetDBs:
 				count += 1
 				# progress=count/float(total)
-				update_progress(count/float(total)) #status bar
+				update_progress(count/float(total))
 
 				# get target DB name
 				targetDBName = os.path.splitext(os.path.basename(targetDB))[0]
@@ -89,18 +92,18 @@ def analyzeTarget(targetDBs, queryDBs, oOutput):
 				for line in wrapBev(bevelPath, targetDB, queryDB):
 
 			#query Seqid	target Seqid	query Start	target Start	# minimizers found in target	# minimizers found in query
-#use dataframe
-					result = {} #create a dictionary
-					line2 = line.strip().split() # split line into separate items
 
-					result['qDB'] = queryDBName #take each line and put into a dictionary and add dictionary to list
+					result = {}
+					line2 = line.strip().split()
+
+					result['qDB'] = queryDBName
 					result['qseqID'] = line2[0]
 					result['tDB'] = targetDBName
 					result['tseqID'] = line2[1].replace('accn|','')
-					result['tminz'] = int(line2[4])
+					# result['tminz'] = int(line2[4])
 					result['qminz'] = int(line2[5])
 
-					lOutput.append(result.copy()) #create list of dictionaries
+					lOutput.append(result.copy())
 
 				if lOutput:
 					sortedlist = []
@@ -108,8 +111,10 @@ def analyzeTarget(targetDBs, queryDBs, oOutput):
 					sortedlist = list(lOutput)
 
 					sortedlist.sort(key=itemgetter('qseqID','tseqID'))
+					# sortedlist = sorted(lOutput, key=itemgetter('qseqID','tseqID'))
+					# print '\n'.join(str(items.values()) for items in sortedlist)
 
-					df = pd.DataFrame() #create empty dataframe
+					df = pd.DataFrame()
 
 					# Create dataframe from list of dictionaries
 					df = pd.DataFrame(sortedlist)
@@ -117,22 +122,38 @@ def analyzeTarget(targetDBs, queryDBs, oOutput):
 
 					# Sum query minimizers for lines with same qseqID and same tseqID
 					df = df.groupby(['qseqID', 'tseqID','qDB','tDB'])['qminz'].sum().reset_index()
-					# df = df.groupby(['qseqID', 'tseqID','qDB','tDB'], as_index=False)['qminz'].sum()
-					# print ('sum query minimizer\n')
 
 					# Sort dataframe by qminz in descending order
-					df = df.sort(['qminz'], ascending=[False])
+					df = df.sort(['qminz'], ascending=[False]).reset_index()
 					# print ('sort DF\n')
+
+					df = df.groupby(["qDB", "tDB"]).apply(lambda x: x[x["qminz"] == x["qminz"].max()])
 
 					df = df[['qDB','qseqID','tDB','tseqID','qminz']]
 
-					# Write results to output file
-					df.to_string(oOutput,index=False,header=False)
-					oOutput.write('\n')
+					# print('df: ' + str(len(df)))
+
+					dfall=dfall.append(df)
+
+					# print('dfall: ' + str(len(dfall)))
+
+					# highest = df.at[0,'qminz']
+					# print('Highest: ' + str(highest))
+
+					# # Write results to output file
+					# df.to_string(oOutput,index=False,header=False)
+					# oOutput.write('\n')
 
 				else:
-					oOutput.write('No Minimizers -- ' + queryDBName + ' || ' + targetDBName + '\n')
+					# oOutput.write('No Minimizers -- ' + queryDBName + ' || ' + targetDBName + '\n')
 					continue
+
+							# Write results to output file
+
+		# # Write results to output file
+		dfall.to_string(oOutput,index=False,header=False)
+		# oOutput.write('\n')
+
 
 	# except:
 	# 	sys.stderr.write('There is a problem! (analyzeTarget)\n')
@@ -160,10 +181,10 @@ def main():
 	# For testing
 	# targetDB = '/share/biocore/internal_projects/seqmatch/genomes/149385.12/149385.12.fna'
 	# queryDB = '/share/biocore/internal_projects/seqmatch/03-SpadesAssemblies/41-3_S39/41-3_S39.AllContigs.fna'
-#Create list from text files - 60000targetdbs 291 querydbs , 5000 target dbs
+
 	# print os.path.splitext(os.path.basename(sys.argv[0]))[0]
 	# Create list of target DBs
-	targetDBs = createDBList('target-1000-3')
+	targetDBs = createDBList('target-files')
 	# print len(targetDBs)
 
 	# Create list of query DBs
