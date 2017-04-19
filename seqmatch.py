@@ -1,9 +1,10 @@
-#! /usr/bin/python
+#!/usr/bin/python
 import os
 import sys
+import getopt
 import string
 import signal
-import fnmatch
+import fnmatch 
 import pandas as pd
 
 from datetime import datetime
@@ -32,12 +33,12 @@ def createDBListOrig (file, rd): #create list of db files
 
 def createDBList (file): #create list of db files from text file
 	dblist = open(file+".txt",'r').readlines()
-	dblist = [x.strip() for x in dblist]
+	dblist = [x.strip() for x in dblist] 
 
 	return dblist
 
 def wrapBev(bevelPath, targetDB, queryDB, writeDB = False, nMinimizer = 100, sizeMinimizer = size_min_num):
-
+	
 	if size_min_num >= 32:
 			print 'Minimizer size must be less than or equal to 32\n'
 			exit()
@@ -61,7 +62,7 @@ def wrapBev(bevelPath, targetDB, queryDB, writeDB = False, nMinimizer = 100, siz
 				preexec_fn=lambda: signal.signal(signal.SIGPIPE, signal.SIG_DFL))
 	if p.returncode:
 		raise
-	return p.stdout
+	return p.stdout 
 
 def analyzeTarget(targetDBs, queryDBs, oOutput):
 	# try:
@@ -73,12 +74,12 @@ def analyzeTarget(targetDBs, queryDBs, oOutput):
 
 		columns=['qDB','qseqID','tDB','tseqID','qminz']
 		dfall = pd.DataFrame(columns=columns)
-		# dfall.loc[len(dfall)]=
+
 		count = 0
 		for queryDB in queryDBs:
 			for targetDB in targetDBs:
 				count += 1
-				# progress=count/float(total)
+				# progress=count/float(total) 
 				update_progress(count/float(total))
 
 				# get target DB name
@@ -88,7 +89,7 @@ def analyzeTarget(targetDBs, queryDBs, oOutput):
 				queryDBName = os.path.splitext(os.path.basename(queryDB))[0]
 
 				lOutput=[]
-
+			
 				for line in wrapBev(bevelPath, targetDB, queryDB):
 
 			#query Seqid	target Seqid	query Start	target Start	# minimizers found in target	# minimizers found in query
@@ -96,11 +97,11 @@ def analyzeTarget(targetDBs, queryDBs, oOutput):
 					result = {}
 					line2 = line.strip().split()
 
-					result['qDB'] = queryDBName
+					result['qDB'] = queryDBName		
 					result['qseqID'] = line2[0]
 					result['tDB'] = targetDBName
 					result['tseqID'] = line2[1].replace('accn|','')
-					# result['tminz'] = int(line2[4])
+					# result['tminz'] = int(line2[4])	
 					result['qminz'] = int(line2[5])
 
 					lOutput.append(result.copy())
@@ -127,30 +128,21 @@ def analyzeTarget(targetDBs, queryDBs, oOutput):
 					df = df.sort(['qminz'], ascending=[False]).reset_index()
 					# print ('sort DF\n')
 
+
 					df = df.groupby(["qDB", "tDB"]).apply(lambda x: x[x["qminz"] == x["qminz"].max()])
 
 					df = df[['qDB','qseqID','tDB','tseqID','qminz']]
 
-					# print('df: ' + str(len(df)))
-
+					
 					dfall=dfall.append(df)
 
-					# print('dfall: ' + str(len(dfall)))
-
-					# highest = df.at[0,'qminz']
-					# print('Highest: ' + str(highest))
-
-					# # Write results to output file
-					# df.to_string(oOutput,index=False,header=False)
-					# oOutput.write('\n')
+					# dfall = pd.concat([dfall,df], ignore_index=True)
 
 				else:
 					# oOutput.write('No Minimizers -- ' + queryDBName + ' || ' + targetDBName + '\n')
 					continue
 
-							# Write results to output file
-
-		# # Write results to output file
+		# Write results to output file
 		dfall.to_string(oOutput,index=False,header=False)
 		# oOutput.write('\n')
 
@@ -174,21 +166,35 @@ def update_progress(progress):
 		status = "Done...\r\n"
 	block = int(round(barLength*progress))
 	text = "\rPercent: [{0}] {1}% {2}".format( "="*block + " "*(barLength-block), format(progress*100,'.2f'), status)
+	# text = "\rPercent: [{0}] {1}% ({2}) {3}".format( "="*block + " "*(barLength-block), format(progress*100,'.2f'), progress, status)
 	sys.stdout.write(text)
 	sys.stdout.flush()
 
-def main():
-	# For testing
-	# targetDB = '/share/biocore/internal_projects/seqmatch/genomes/149385.12/149385.12.fna'
-	# queryDB = '/share/biocore/internal_projects/seqmatch/03-SpadesAssemblies/41-3_S39/41-3_S39.AllContigs.fna'
-
-	# print os.path.splitext(os.path.basename(sys.argv[0]))[0]
+def main(argv):
+	targetfile = ''
+	queryfile = ''
+	try:
+		opts, args = getopt.getopt(argv,"ht:q:",["tfile=","qfile="])
+	except getopt.GetoptError:
+		print 'seqmatch.py -t <targetfile> -q <queryfile>'
+		sys.exit(2)
+	for opt, arg in opts:
+		if opt == '-h':
+			print 'seqematch.py -t <targetfile> -q <queryfile>'
+ 			sys.exit()
+		elif opt in ("-t", "--tfile"):
+			targetfile = arg
+		elif opt in ("-q", "--qfile"):
+			queryfile = arg
+	
 	# Create list of target DBs
-	targetDBs = createDBList('target-files')
+	targetDBs = createDBList(targetfile)
+	# targetDBs = createDBList('target-files-bestmatch')
 	# print len(targetDBs)
 
 	# Create list of query DBs
-	queryDBs = createDBList('query-files-all')
+	queryDBs = createDBList(queryfile)
+	# queryDBs = createDBList('query-files-bestmatch')
 	# print len(queryDBs)
 
 	# Create output filename which includes time stamp
@@ -198,7 +204,7 @@ def main():
 	oFile = open(outputFile, "w")
 
 	analyzeTarget(targetDBs, queryDBs, oFile)
-
+	
 	# Done writing to output file so close it
 	oFile.close()
 
