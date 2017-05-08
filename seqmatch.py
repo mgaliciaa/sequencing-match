@@ -4,7 +4,7 @@ import sys
 import getopt
 import string
 import signal
-import fnmatch 
+import fnmatch
 import pandas as pd
 
 from datetime import datetime
@@ -33,12 +33,12 @@ def createDBListOrig (file, rd): #create list of db files
 
 def createDBList (file): #create list of db files from text file
 	dblist = open(file+".txt",'r').readlines()
-	dblist = [x.strip() for x in dblist] 
+	dblist = [x.strip() for x in dblist]
 
 	return dblist
 
 def wrapBev(bevelPath, targetDB, queryDB, writeDB = False, nMinimizer = 100, sizeMinimizer = size_min_num):
-	
+
 	if size_min_num >= 32:
 			print 'Minimizer size must be less than or equal to 32\n'
 			exit()
@@ -62,7 +62,7 @@ def wrapBev(bevelPath, targetDB, queryDB, writeDB = False, nMinimizer = 100, siz
 				preexec_fn=lambda: signal.signal(signal.SIGPIPE, signal.SIG_DFL))
 	if p.returncode:
 		raise
-	return p.stdout 
+	return p.stdout
 
 def analyzeTarget(targetDBs, queryDBs, oOutput):
 	# try:
@@ -79,7 +79,7 @@ def analyzeTarget(targetDBs, queryDBs, oOutput):
 		for queryDB in queryDBs:
 			for targetDB in targetDBs:
 				count += 1
-				# progress=count/float(total) 
+				# progress=count/float(total)
 				update_progress(count/float(total))
 
 				# get target DB name
@@ -89,7 +89,7 @@ def analyzeTarget(targetDBs, queryDBs, oOutput):
 				queryDBName = os.path.splitext(os.path.basename(queryDB))[0]
 
 				lOutput=[]
-			
+
 				for line in wrapBev(bevelPath, targetDB, queryDB):
 
 			#query Seqid	target Seqid	query Start	target Start	# minimizers found in target	# minimizers found in query
@@ -97,11 +97,11 @@ def analyzeTarget(targetDBs, queryDBs, oOutput):
 					result = {}
 					line2 = line.strip().split()
 
-					result['qDB'] = queryDBName		
+					result['qDB'] = queryDBName
 					result['qseqID'] = line2[0]
 					result['tDB'] = targetDBName
 					result['tseqID'] = line2[1].replace('accn|','')
-					# result['tminz'] = int(line2[4])	
+					# result['tminz'] = int(line2[4])
 					result['qminz'] = int(line2[5])
 
 					lOutput.append(result.copy())
@@ -133,7 +133,7 @@ def analyzeTarget(targetDBs, queryDBs, oOutput):
 
 					df = df[['qDB','qseqID','tDB','tseqID','qminz']]
 
-					
+
 					dfall=dfall.append(df)
 
 					# dfall = pd.concat([dfall,df], ignore_index=True)
@@ -186,7 +186,7 @@ def main(argv):
 			targetfile = arg
 		elif opt in ("-q", "--qfile"):
 			queryfile = arg
-	
+
 	# Create list of target DBs
 	targetDBs = createDBList(targetfile)
 	# targetDBs = createDBList('target-files-bestmatch')
@@ -204,8 +204,10 @@ def main(argv):
 	oFile = open(outputFile, "w")
 
 	analyzeTarget(targetDBs, queryDBs, oFile)
-	
+
 	# Done writing to output file so close it
 	oFile.close()
 
 if __name__ == '__main__':
+	main(sys.argv[1:])
+
