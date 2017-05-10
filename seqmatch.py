@@ -13,7 +13,11 @@ from subprocess import PIPE
 from operator import itemgetter
 from itertools import groupby
 
-size_min_num = 17
+nKmer = 15
+nFilter = 10
+nMin = 100
+# nMin = 2
+
 
 bevelPath = "/share/biocore/internal_projects/seqmatch/bevel/bin/bevel"
 
@@ -37,9 +41,9 @@ def createDBList (file): #create list of db files from text file
 
 	return dblist
 
-def wrapBev(bevelPath, targetDB, queryDB, writeDB = False, nMinimizer = 100, sizeMinimizer = size_min_num):
+def wrapBev(bevelPath, targetDB, queryDB, writeDB = False, nMinimizer = nMin, sizeMinimizer = nKmer, filter = nFilter):
 
-	if size_min_num >= 32:
+	if nKmer >= 32:
 			print 'Minimizer size must be less than or equal to 32\n'
 			exit()
 
@@ -48,7 +52,7 @@ def wrapBev(bevelPath, targetDB, queryDB, writeDB = False, nMinimizer = 100, siz
 	if writeDB:
 		call = call + ' -d'
 
-	call = call + ' -w ' + str(nMinimizer) + ' -k ' + str(sizeMinimizer)
+	call = call + ' -w ' + str(nMinimizer) + ' -k ' + str(sizeMinimizer) + ' -n ' + str(nFilter)
 
 	call = call + ' ' + targetDB + ' ' + queryDB
 
@@ -69,10 +73,11 @@ def analyzeTarget(targetDBs, queryDBs, oOutput):
 
 		total=len(targetDBs)*len(queryDBs)
 		# target: 149385.12 ==> query: 41-3_S39.
-		#targetDB = '/share/biocore/internal_projects/seqmatch/genomes/149385.12/149385.12.fna'
-		#queryDB = '/share/biocore/internal_projects/seqmatch/03-SpadesAssemblies/41-3_S39/41-3_S39.AllContigs.fna'
+		#targetDB = '/share/biocore/internal_projects/seqmatch/genomes/1279018.3/1279018.3.fna'
+		#queryDB = '/share/biocore/internal_projects/seqmatch/03-SpadesAssemblies/19_S124/19_S124.Scaffolds.fna'
 
-		columns=['qDB','qseqID','tDB','tseqID','qminz']
+		columns=['qDB','qseqID','tDB','qminz']
+		# columns=['qDB','qseqID','tDB','tseqID','qminz']
 		dfall = pd.DataFrame(columns=columns)
 
 		count = 0
@@ -100,7 +105,7 @@ def analyzeTarget(targetDBs, queryDBs, oOutput):
 					result['qDB'] = queryDBName
 					result['qseqID'] = line2[0]
 					result['tDB'] = targetDBName
-					result['tseqID'] = line2[1].replace('accn|','')
+					#result['tseqID'] = line2[1].replace('accn|','')
 					# result['tminz'] = int(line2[4])
 					result['qminz'] = int(line2[5])
 
@@ -111,7 +116,8 @@ def analyzeTarget(targetDBs, queryDBs, oOutput):
 
 					sortedlist = list(lOutput)
 
-					sortedlist.sort(key=itemgetter('qseqID','tseqID'))
+					sortedlist.sort(key=itemgetter('qseqID','tDB'))
+					# sortedlist.sort(key=itemgetter('qseqID','tseqID'))
 					# sortedlist = sorted(lOutput, key=itemgetter('qseqID','tseqID'))
 					# print '\n'.join(str(items.values()) for items in sortedlist)
 
@@ -121,20 +127,23 @@ def analyzeTarget(targetDBs, queryDBs, oOutput):
 					df = pd.DataFrame(sortedlist)
 					# print ('create DF\n')
 
-					# Sum query minimizers for lines with same qseqID and same tseqID
-					df = df.groupby(['qseqID', 'tseqID','qDB','tDB'])['qminz'].sum().reset_index()
+					# Sum query minimizers for lines with same qseqID and same tDB
+					# df = df.groupby(['qseqID', 'tseqID'])['qminz'].sum().reset_index()
+					df = df.groupby(['qseqID','qDB','tDB'])['qminz'].sum().reset_index()
+					# df = df.groupby(['qseqID', 'tseqID','qDB','tDB'])['qminz'].sum().reset_index()
 
 					# Sort dataframe by qminz in descending order
 					df = df.sort(['qminz'], ascending=[False]).reset_index()
 					# print ('sort DF\n')
 
+					# df = df[['qDB','qseqID','tDB','tseqID','qminz']]
 
 					df = df.groupby(["qDB", "tDB"]).apply(lambda x: x[x["qminz"] == x["qminz"].max()])
 
-					df = df[['qDB','qseqID','tDB','tseqID','qminz']]
+					df = df[['qDB','qseqID','tDB','qminz']]
 
 
-					dfall=dfall.append(df)
+					dfall=dfall.append(df, ignore_index = True)
 
 					# dfall = pd.concat([dfall,df], ignore_index=True)
 
@@ -144,7 +153,7 @@ def analyzeTarget(targetDBs, queryDBs, oOutput):
 
 		# Write results to output file
 		dfall.to_string(oOutput,index=False,header=False)
-		# oOutput.write('\n')
+		oOutput.write('\n')
 
 
 	# except:
@@ -176,11 +185,12 @@ def main(argv):
 	try:
 		opts, args = getopt.getopt(argv,"ht:q:",["tfile=","qfile="])
 	except getopt.GetoptError:
-		print 'seqmatch.py -t <targetfile> -q <queryfile>'
+		print 'seqmatch.py - t <targetfile> -q <queryfile>'
 		sys.exit(2)
+
 	for opt, arg in opts:
 		if opt == '-h':
-			print 'seqematch.py -t <targetfile> -q <queryfile>'
+			print 'seqmatch.py -t <targetfile> -q <queryfile>'
  			sys.exit()
 		elif opt in ("-t", "--tfile"):
 			targetfile = arg
@@ -210,4 +220,3 @@ def main(argv):
 
 if __name__ == '__main__':
 	main(sys.argv[1:])
-
