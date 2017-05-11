@@ -105,7 +105,7 @@ def analyzeTarget(targetDBs, queryDBs, oOutput):
 					result['qDB'] = queryDBName
 					result['qseqID'] = line2[0]
 					result['tDB'] = targetDBName
-					#result['tseqID'] = line2[1].replace('accn|','')
+					# result['tseqID'] = line2[1].replace('accn|','')
 					# result['tminz'] = int(line2[4])
 					result['qminz'] = int(line2[5])
 
@@ -138,7 +138,7 @@ def analyzeTarget(targetDBs, queryDBs, oOutput):
 
 					# df = df[['qDB','qseqID','tDB','tseqID','qminz']]
 
-					df = df.groupby(["qDB", "tDB"]).apply(lambda x: x[x["qminz"] == x["qminz"].max()])
+					df = df.groupby(["qseqID", "tDB"]).apply(lambda x: x[x["qminz"] == x["qminz"].max()])
 
 					df = df[['qDB','qseqID','tDB','qminz']]
 
@@ -220,3 +220,4 @@ def main(argv):
 
 if __name__ == '__main__':
 	main(sys.argv[1:])
+
