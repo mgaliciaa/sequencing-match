@@ -1,4 +1,5 @@
-#!/usr/bin/python
+#! /usr/bin/python
+
 import os
 import sys
 import getopt
@@ -18,22 +19,7 @@ nFilter = 10
 nMin = 100
 # nMin = 2
 
-
 bevelPath = "/share/biocore/internal_projects/seqmatch/bevel/bin/bevel"
-
-
-def createDBListOrig (file, rd): #create list of db files
-	outfile = open(file+'.txt', 'w')
-
-	dblist = []
-	for root, dirnames, filenames in os.walk(rd):
-			for filename in fnmatch.filter(filenames, '*.fna'):
-				dblist.append(os.path.join(root, filename))
-
-	for item in dblist:
-		outfile.write("%s\n" % item)
-
-	outfile.close()
 
 def createDBList (file): #create list of db files from text file
 	dblist = open(file+".txt",'r').readlines()
@@ -41,123 +27,108 @@ def createDBList (file): #create list of db files from text file
 
 	return dblist
 
+def sortFile(outFile):
+	with open(outFile) as f:
+	    sorted_file = sorted(f)
+
+	sorted_file.close()
+
+
 def wrapBev(bevelPath, targetDB, queryDB, writeDB = False, nMinimizer = nMin, sizeMinimizer = nKmer, filter = nFilter):
 
-	if nKmer >= 32:
-			print 'Minimizer size must be less than or equal to 32\n'
-			exit()
+		if nKmer >= 32:
+				print 'Minimizer size must be less than or equal to 32\n'
+				exit()
 
-	call = bevelPath
+		s = ' '
+		strList = (bevelPath,'-w',str(nMinimizer),'-k',str(sizeMinimizer),'-n',str(nFilter),targetDB,queryDB)
+		call = s.join(strList )
 
-	if writeDB:
-		call = call + ' -d'
+		with open(os.devnull, 'w') as DEVNULL:
+				p = Popen(call,
+								stdout=PIPE,
+								stderr = DEVNULL,
+								bufsize=-1,
+								shell=True,
+								executable='/bin/bash',
+								preexec_fn=lambda: signal.signal(signal.SIGPIPE, signal.SIG_DFL))
+		if p.returncode:
+				raise
+		return p.stdout
 
-	call = call + ' -w ' + str(nMinimizer) + ' -k ' + str(sizeMinimizer) + ' -n ' + str(nFilter)
-
-	call = call + ' ' + targetDB + ' ' + queryDB
-
-	with open(os.devnull, 'w') as DEVNULL:
-		p = Popen(call,
-				stdout=PIPE,
-				stderr = DEVNULL,
-				bufsize=-1,
-				shell=True,
-				executable='/bin/bash',
-				preexec_fn=lambda: signal.signal(signal.SIGPIPE, signal.SIG_DFL))
-	if p.returncode:
-		raise
-	return p.stdout
-
-def analyzeTarget(targetDBs, queryDBs, oOutput):
+def analyzeTarget(targetDB, queryDB, oOutput):
 	# try:
 
-		total=len(targetDBs)*len(queryDBs)
-		# target: 149385.12 ==> query: 41-3_S39.
-		#targetDB = '/share/biocore/internal_projects/seqmatch/genomes/1279018.3/1279018.3.fna'
-		#queryDB = '/share/biocore/internal_projects/seqmatch/03-SpadesAssemblies/19_S124/19_S124.Scaffolds.fna'
-
-		columns=['qDB','qseqID','tDB','qminz']
-		# columns=['qDB','qseqID','tDB','tseqID','qminz']
+		# columns=['qDB','qseqID','tDB','qminz']
+		#columns=['qseqID','tseqID','qminz']
+		columns=['qDB','qseqID','tDB','tseqID','qminz']
 		dfall = pd.DataFrame(columns=columns)
+		dftseq = pd.DataFrame(['qseqID','tseqID'])
+		dftotal = pd.DataFrame(columns=columns)
 
-		count = 0
-		for queryDB in queryDBs:
-			for targetDB in targetDBs:
-				count += 1
-				# progress=count/float(total)
-				update_progress(count/float(total))
+		# get target DB name
+		targetDBName = os.path.splitext(os.path.basename(targetDB))[0]
 
-				# get target DB name
-				targetDBName = os.path.splitext(os.path.basename(targetDB))[0]
+		# get query DB name
+		queryDBName = os.path.splitext(os.path.basename(queryDB))[0]
 
-				# get query DB name
-				queryDBName = os.path.splitext(os.path.basename(queryDB))[0]
+		lOutput=[]
 
-				lOutput=[]
+		for line in wrapBev(bevelPath, targetDB, queryDB):
 
-				for line in wrapBev(bevelPath, targetDB, queryDB):
+			result = {}
+			line2 = line.strip().split()
 
-			#query Seqid	target Seqid	query Start	target Start	# minimizers found in target	# minimizers found in query
+			result['qDB'] = queryDBName
+			result['qseqID'] = line2[0]
+			result['tDB'] = targetDBName
+			result['tseqID'] = line2[1].replace('accn|','')
+			# result['tminz'] = int(line2[4])
+			result['qminz'] = int(line2[5])
 
-					result = {}
-					line2 = line.strip().split()
+			lOutput.append(result.copy())
 
-					result['qDB'] = queryDBName
-					result['qseqID'] = line2[0]
-					result['tDB'] = targetDBName
-					# result['tseqID'] = line2[1].replace('accn|','')
-					# result['tminz'] = int(line2[4])
-					result['qminz'] = int(line2[5])
+		if lOutput:
+			sortedlist = []
 
-					lOutput.append(result.copy())
+			sortedlist = list(lOutput)
 
-				if lOutput:
-					sortedlist = []
+			sortedlist.sort(key=itemgetter('qseqID','tseqID'))
 
-					sortedlist = list(lOutput)
+			df = pd.DataFrame()
 
-					sortedlist.sort(key=itemgetter('qseqID','tDB'))
-					# sortedlist.sort(key=itemgetter('qseqID','tseqID'))
-					# sortedlist = sorted(lOutput, key=itemgetter('qseqID','tseqID'))
-					# print '\n'.join(str(items.values()) for items in sortedlist)
+			# Create dataframe from list of dictionaries
+			df = pd.DataFrame(sortedlist)
+			dftseq = df.copy(deep=True)
 
-					df = pd.DataFrame()
+			# delete qminz from dftseq
+			dftseq = dftseq.drop('qminz', 1)
 
-					# Create dataframe from list of dictionaries
-					df = pd.DataFrame(sortedlist)
-					# print ('create DF\n')
+			dftseq = dftseq.groupby(['qseqID'],as_index=False).first()
 
-					# Sum query minimizers for lines with same qseqID and same tDB
-					# df = df.groupby(['qseqID', 'tseqID'])['qminz'].sum().reset_index()
-					df = df.groupby(['qseqID','qDB','tDB'])['qminz'].sum().reset_index()
-					# df = df.groupby(['qseqID', 'tseqID','qDB','tDB'])['qminz'].sum().reset_index()
+			# Sum query minimizers for lines with same qseqID and same tDB
+			df = df.groupby(['qseqID'])['qminz'].sum().reset_index()
 
-					# Sort dataframe by qminz in descending order
-					df = df.sort(['qminz'], ascending=[False]).reset_index()
-					# print ('sort DF\n')
+			# Sort dataframe by qminz in descending order
+			df = df.sort(['qminz'], ascending=[False]).reset_index()
 
-					# df = df[['qDB','qseqID','tDB','tseqID','qminz']]
+			df = df.groupby(["qseqID"]).apply(lambda x: x[x["qminz"] == x["qminz"].max()])
 
-					df = df.groupby(["qseqID", "tDB"]).apply(lambda x: x[x["qminz"] == x["qminz"].max()])
+			df = df.reindex(columns=['qseqID','tseqID','qminz'])
 
-					df = df[['qDB','qseqID','tDB','qminz']]
+			dfall=dfall.append(df, ignore_index = True)
 
+			dfall = dfall.drop('tseqID', 1)
 
-					dfall=dfall.append(df, ignore_index = True)
+			dftotal = pd.merge(dfall, dftseq, how='outer', on='qseqID')
 
-					# dfall = pd.concat([dfall,df], ignore_index=True)
-
-				else:
-					# oOutput.write('No Minimizers -- ' + queryDBName + ' || ' + targetDBName + '\n')
-					continue
+		else:
+			# oOutput.write('No Minimizers -- ' + queryDBName + ' || ' + targetDBName + '\n')
+			return
 
 		# Write results to output file
-		dfall.to_string(oOutput,index=False,header=False)
+		dftotal.to_string(oOutput,index=False,header=False)
 		oOutput.write('\n')
-
-
-	# except:
-	# 	sys.stderr.write('There is a problem! (analyzeTarget)\n')
 
 def update_progress(progress):
 	barLength = 20 # Modify this to change the length of the progress bar
@@ -175,7 +146,6 @@ def update_progress(progress):
 		status = "Done...\r\n"
 	block = int(round(barLength*progress))
 	text = "\rPercent: [{0}] {1}% {2}".format( "="*block + " "*(barLength-block), format(progress*100,'.2f'), status)
-	# text = "\rPercent: [{0}] {1}% ({2}) {3}".format( "="*block + " "*(barLength-block), format(progress*100,'.2f'), progress, status)
 	sys.stdout.write(text)
 	sys.stdout.flush()
 
@@ -191,33 +161,41 @@ def main(argv):
 	for opt, arg in opts:
 		if opt == '-h':
 			print 'seqmatch.py -t <targetfile> -q <queryfile>'
- 			sys.exit()
+			sys.exit()
 		elif opt in ("-t", "--tfile"):
-			targetfile = arg
+				targetfile = arg
 		elif opt in ("-q", "--qfile"):
 			queryfile = arg
 
 	# Create list of target DBs
 	targetDBs = createDBList(targetfile)
-	# targetDBs = createDBList('target-files-bestmatch')
-	# print len(targetDBs)
 
 	# Create list of query DBs
 	queryDBs = createDBList(queryfile)
-	# queryDBs = createDBList('query-files-bestmatch')
-	# print len(queryDBs)
 
-	# Create output filename which includes time stamp
+	total = len(targetDBs)*len(queryDBs)
+
+    # Create output filename which includes time stamp
 	outputFile = 'output_' + datetime.now().strftime("%Y%m%d-%H%M%S") + '_' + os.path.splitext(os.path.basename(sys.argv[0]))[0] + '.txt'
 
 	# Create/open output file object
 	oFile = open(outputFile, "w")
 
-	analyzeTarget(targetDBs, queryDBs, oFile)
+	count=0
+	#Looping through each db list and running bevel against each db
+	for queryDB in queryDBs:
+		for targetDB in targetDBs:
+			count += 1
+			# progress=count/float(total)
+			update_progress(count/float(total))
+			analyzeTarget(targetDB, queryDB, oFile)
+
+	# sortFile(oFile)
 
 	# Done writing to output file so close it
 	oFile.close()
 
-if __name__ == '__main__':
-	main(sys.argv[1:])
+	outList = pd.read_csv(outputFile, sep=" ", header = None)
+	print(outList)
 
+if __name__ == '__main__': main(sys.argv[1:])
