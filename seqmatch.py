@@ -60,8 +60,8 @@ def analyzeTarget(targetDB, queryDB, oOutput):
 	# try:
 
 		# columns=['qDB','qseqID','tDB','qminz']
-		#columns=['qseqID','tseqID','qminz']
-		columns=['qDB','qseqID','tDB','tseqID','qminz']
+		columns=['qseqID','tseqID','qminz']
+		# columns=['qDB','qseqID','tDB','tseqID','qminz']
 		dfall = pd.DataFrame(columns=columns)
 		dftseq = pd.DataFrame(['qseqID','tseqID'])
 		dftotal = pd.DataFrame(columns=columns)
@@ -127,8 +127,9 @@ def analyzeTarget(targetDB, queryDB, oOutput):
 			return
 
 		# Write results to output file
-		dftotal.to_string(oOutput,index=False,header=False)
-		oOutput.write('\n')
+		dftotal.to_csv(oOutput, header=False,index=False,index_label=False, mode='a', sep='\t')
+		# dftotal.to_csv(r'test-output.txt', header=True,index=False,index_label=False, mode='a', sep='\t')
+		# oOutput.write('\n')
 
 def update_progress(progress):
 	barLength = 20 # Modify this to change the length of the progress bar
@@ -190,12 +191,13 @@ def main(argv):
 			update_progress(count/float(total))
 			analyzeTarget(targetDB, queryDB, oFile)
 
-	# sortFile(oFile)
 
 	# Done writing to output file so close it
 	oFile.close()
 
-	outList = pd.read_csv(outputFile, sep=" ", header = None)
-	print(outList)
+	outList = pd.read_csv(outputFile, sep="\t", header=0,names = ["qseqID", "qminz","qDB","tDB","tseqID"])
+	outList.sort(['qminz','qseqID'], ascending=[False,False],inplace=True)
+	outList.to_csv("sorted_"+outputFile, header=False,index=False,index_label=False, mode='w', sep='\t')
+	# print(outList)
 
 if __name__ == '__main__': main(sys.argv[1:])
