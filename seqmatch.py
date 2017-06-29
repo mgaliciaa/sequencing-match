@@ -7,12 +7,14 @@ import string
 import signal
 import fnmatch
 import pandas as pd
+import requests
 
 from datetime import datetime
 from subprocess import Popen
 from subprocess import PIPE
 from operator import itemgetter
-from itertools import groupby
+from itertools import groupby,islice
+from lxml.html import fromstring
 
 nKmer = 15
 nFilter = 10
@@ -33,6 +35,17 @@ def sortFile(outFile):
 
 	sorted_file.close()
 
+def getBacterium(qmnz,tseq):
+	dict = {}
+	url = 'https://www.ncbi.nlm.nih.gov/nuccore/' + tseq
+	# print (url)
+	r = requests.get(url)
+	tree = fromstring(r.content)
+	dict['bact'] =  tree.findtext('.//title')
+	dict['qminz'] = qmnz
+	dict['tseqID'] = tseq
+
+	return dict
 
 def wrapBev(bevelPath, targetDB, queryDB, writeDB = False, nMinimizer = nMin, sizeMinimizer = nKmer, filter = nFilter):
 
@@ -153,6 +166,10 @@ def update_progress(progress):
 def main(argv):
 	targetfile = ''
 	queryfile = ''
+	fResults = []
+	# dfTemp = pd.DataFrame()
+	# dfTop = pd.DataFrame()
+	dfResults = pd.DataFrame()
 	try:
 		opts, args = getopt.getopt(argv,"ht:q:",["tfile=","qfile="])
 	except getopt.GetoptError:
@@ -182,6 +199,7 @@ def main(argv):
 	# Create/open output file object
 	oFile = open(outputFile, "w")
 
+	print '\nCalculating minimizer scores'
 	count=0
 	#Looping through each db list and running bevel against each db
 	for queryDB in queryDBs:
@@ -195,9 +213,51 @@ def main(argv):
 	# Done writing to output file so close it
 	oFile.close()
 
-	outList = pd.read_csv(outputFile, sep="\t", header=0,names = ["qseqID", "qminz","qDB","tDB","tseqID"])
+	outList = pd.read_csv(outputFile, sep="\t", header=0,index_col=False,names = ["qseqID", "qminz","qDB","tDB","tseqID"],dtype={"qseqID":str, "qminz":int,"qDB":str,"tDB":str,"tseqID":str})
 	outList.sort(['qminz','qseqID'], ascending=[False,False],inplace=True)
-	outList.to_csv("sorted_"+outputFile, header=False,index=False,index_label=False, mode='w', sep='\t')
+
+	top = outList.head(100)
+
+	dfTop = pd.DataFrame()
+
+	dfTop = pd.DataFrame(top)
+
+	# dfTop = dfTop.append(df, ignore_index = True)
+
+	# print dfTop
+
+	gp = outList[['tseqID','qminz']]
+
+	gp = gp.head(100)
+
+	print '\nGetting Bacterium names'
+	count = 0
+	for index, row in gp.iterrows():
+		count += 1
+		update_progress(count/float(100))
+		bacDict = getBacterium(int(row['qminz']),row['tseqID'])
+		fResults.append(bacDict.copy())
+
+	dfTemp = pd.DataFrame()
+
+	dfTemp = pd.DataFrame(fResults)
+
+	# df = df.reindex(columns=['tseqID','bact'])
+
+	# fResults = fResults.drop('tseqID', 1)
+
+	# dfTemp = dfTemp.append(df, ignore_index = True)
+
+	# df = df.drop('tseqID', 1)
+
+	# print dfTemp
+
+	dfResults = pd.merge(dfTop, dfTemp, on=['tseqID','qminz'])
+
+	print '\nCreating output file'
+	# print dfResults
+	dfResults.to_csv("final_"+outputFile, header=False,index=False,index_label=False, mode='w', sep='\t')
+
 	# print(outList)
 
 if __name__ == '__main__': main(sys.argv[1:])
